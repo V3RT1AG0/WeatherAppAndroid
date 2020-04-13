@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Weather</string>
+    <string name="change_team">Change Team</string>
+    <string name="an_error_has_occoured">Oops! Looks like there is no data available for the entered zipcode or there was an error fetching data</string>
+</resources>
