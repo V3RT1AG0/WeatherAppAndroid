@@ -28,8 +28,6 @@ class SearchActivity : AppCompatActivity() {
             setResult(Activity.RESULT_OK, resultIntent)
             finish()
         }
-//        val slide = TransitionInflater.from(this).inflateTransition(R.transition.slide)
-//        window.enterTransition = slide
     }
 
     override fun onSupportNavigateUp(): Boolean {

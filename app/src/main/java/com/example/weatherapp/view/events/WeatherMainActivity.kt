@@ -108,7 +108,6 @@ class WeatherMainActivity : AppCompatActivity() {
     }
 
 
-
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return super.onCreateOptionsMenu(menu)
@@ -131,8 +130,8 @@ class WeatherMainActivity : AppCompatActivity() {
         when (requestCode) {
             SEARCH_ACTIVITY_ID ->
                 if (resultCode == Activity.RESULT_OK) {
-                    val zip = data!!.getStringExtra ("zip")
-                    if (zip == "0") {
+                    val zip = data!!.getStringExtra("zip")
+                    if (zip.equals("0")) {
                         getLastLocation()
                     } else
                         weatherViewModel.fetchDatafor(zip)
@@ -141,103 +140,113 @@ class WeatherMainActivity : AppCompatActivity() {
     }
 
 
-        private fun checkPermissions(): Boolean {
-            return ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        }
+    private fun checkPermissions(): Boolean {
+        return (ActivityCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED)
+    }
 
-        private fun requestPermissions() {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                PERMISSION_ID
-            )
-        }
+    private fun requestPermissions() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ),
+            PERMISSION_ID
+        )
+    }
 
-        private fun isLocationEnabled(): Boolean {
-            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(
-                LocationManager.NETWORK_PROVIDER
-            )
-        }
+    private fun isLocationEnabled(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(
+            LocationManager.NETWORK_PROVIDER
+        )
+    }
 
-        override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<String>,
-            grantResults: IntArray
-        ) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-            if (requestCode == PERMISSION_ID) {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    getLastLocation()
-                }
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_ID) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getLastLocation()
+            }
+            else
+            {
+                Toast.makeText(this,"Please grant location permission and try again",Toast.LENGTH_LONG).show()
+                finish()
             }
         }
+    }
 
 
-        @SuppressLint("MissingPermission")
-        private fun getLastLocation() {
-            Log.d("reached", "logeger")
-            if (checkPermissions()) {
-                Log.d("reached", "logeger")
-                if (isLocationEnabled()) {
-                    Log.d("reached", "logeger")
-                    mFusedLocationClient.lastLocation.addOnCompleteListener { task ->
-                        val location = task.result
+    @SuppressLint("MissingPermission")
+    private fun getLastLocation() {
+        if (checkPermissions()) {
+            if (isLocationEnabled()) {
+                mFusedLocationClient.lastLocation.addOnCompleteListener { task ->
+                    val location = task.result
                         if (location == null) {
-                            requestNewLocationData()
+                    requestNewLocationData()
                         } else {
-                            Log.d("reached", "logeger")
                             updateWeatherWithLocation(location)
                         }
-                    }
-                } else {
-                    Toast.makeText(this, "Turn on location", Toast.LENGTH_LONG).show()
-                    val intent = Intent(ACTION_LOCATION_SOURCE_SETTINGS)
-                    startActivity(intent)
                 }
             } else {
-                requestPermissions()
+                Toast.makeText(this, "Turn on location", Toast.LENGTH_LONG).show()
+                val intent = Intent(ACTION_LOCATION_SOURCE_SETTINGS)
+                startActivity(intent)
             }
+        } else {
+            requestPermissions()
         }
+    }
 
-        @SuppressLint("MissingPermission")
-        private fun requestNewLocationData() {
-
-            val locationRequest = LocationRequest.create()?.apply {
-                interval = 10000
-                fastestInterval = 5000
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                numUpdates = 1
-            }
-
-            var mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-            mFusedLocationClient.requestLocationUpdates(
-                locationRequest, object : LocationCallback() {
-                    override fun onLocationResult(locatonResult: LocationResult?) {
-                        super.onLocationResult(locatonResult)
-                        if (locatonResult != null) {
-                            updateWeatherWithLocation(locatonResult.lastLocation)
-                        }
+    @SuppressLint("MissingPermission")
+    private fun requestNewLocationData() {
+        var isUpdated = false
+        val locationRequest = LocationRequest.create()?.apply {
+            interval = 10000
+            fastestInterval = 5000
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            numUpdates = 3
+        }
+        var mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        mFusedLocationClient.requestLocationUpdates(
+            locationRequest, object : LocationCallback() {
+                override fun onLocationResult(locatonResult: LocationResult?) {
+                    super.onLocationResult(locatonResult)
+                    if (locatonResult != null && !isUpdated) {
+                        isUpdated = true
+                        updateWeatherWithLocation(locatonResult.lastLocation)
                     }
-                },
-                Looper.myLooper()
-            )
+                }
 
-        }
-
-        private fun updateWeatherWithLocation(location: Location) {
-            val geocoder = Geocoder(this, Locale.getDefault())
-            val address = geocoder.getFromLocation(location.latitude, location.longitude, 1)[0]
-            address.let {
-                val postalCode = it.postalCode
-                weatherViewModel.fetchDatafor(postalCode)
-            }
-
-        }
-
+                override fun onLocationAvailability(p0: LocationAvailability?) {
+                    super.onLocationAvailability(p0)
+                }
+            },
+            Looper.myLooper()
+        )
 
     }
+
+    private fun updateWeatherWithLocation(location: Location) {
+        val geocoder = Geocoder(this, Locale.getDefault())
+        val address = geocoder.getFromLocation(location.latitude, location.longitude, 1)[0]
+        Log.d("reached", "logeger7")
+        address.let {
+            val postalCode = it.postalCode
+            weatherViewModel.fetchDatafor(postalCode)
+        }
+
+    }
+
+
+}
